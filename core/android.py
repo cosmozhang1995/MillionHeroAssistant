@@ -21,7 +21,11 @@ def print(*args):
     pass
 
 def exec_cmd(cmd):
-    os.system(cmd + " > /dev/null")
+    system_version = platform.system().upper()
+    if system_version.startswith("WINDOWS"):
+        os.system(cmd)
+    else:
+        os.system(cmd + " > /dev/null")
 
 # SCREENSHOT_WAY 是截图方法，
 # 经过 check_screenshot 后，会自动递
@@ -102,8 +106,11 @@ def capture_screen_v2(filename="screenshot.png", directory="."):
     :return:
     """
     adb_bin = get_adb_tool()
+    sys.stdout.write(">>> cmd\n")
+    sys.stdout.write("{0} shell screencap -p /sdcard/{1}\n".format(adb_bin, filename))
     exec_cmd("{0} shell screencap -p /sdcard/{1}".format(adb_bin, filename))
     exec_cmd("{0} pull /sdcard/{1} {2}".format(adb_bin, filename, os.path.join(directory, filename)))
+    sys.stdout.write("<<< cmd\n")
 
 
 def capture_screen(filename="screenshot.png", directory="."):
