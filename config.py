@@ -19,6 +19,9 @@ with open("config.yaml", "rb") as reader:
     ## 最终裁剪区域可表示为 (image_width * left, image_height * top, image_width * right, image_height * bottom)
     crop_areas = config["crop_areas"]
 
+    answer_time_limits = config["answer_time_limits"]
+    detecting_interval = config["detecting_interval"]
+
     ### baidu orc
     app_id = config["app_id"]
     app_key = config["app_key"]

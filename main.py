@@ -9,7 +9,7 @@
 
 import multiprocessing
 import operator
-import os
+import sys, os
 import time
 from argparse import ArgumentParser
 from datetime import datetime
@@ -30,6 +30,8 @@ from config import enable_chrome
 from config import image_compress_level
 from config import prefer
 from config import use_monitor
+from config import answer_time_limits
+from config import detecting_interval
 from core.android import analyze_current_screen_text, get_adb_tool, check_screenshot
 from core.android import save_screen
 from core.check_words import parse_false
@@ -137,6 +139,8 @@ def main():
         browser_daemon.daemon = True
         browser_daemon.start()
 
+    last_question = None
+
     def __inner_job():
         start = time.time()
         text_binary = analyze_current_screen_text(
@@ -149,20 +153,29 @@ def main():
             image_data=text_binary,
         )
         if not keywords:
-            print("text not recognize")
-            return
+            # print("\ntext not recognize")
+            return None
 
         true_flag, real_question, question, answers = parse_question_and_answer(
             keywords)
 
+        nonlocal last_question
+
+        if last_question == real_question:
+            return None
+
+        last_question = real_question
+
         ## notice crawler to work
         # qwriter.send(real_question.strip("?"))
         # crawler_noticer.set()
+        
+        print("")
 
         print('-' * 72)
-        print(real_question)
-        print('-' * 72)
-        print("\n".join(answers))
+        print("\033[43;34m\033[1m" + real_question + "\033[0m")
+        # print('-' * 72)
+        # print("\n".join(answers))
 
         # notice browser
         if enable_chrome:
@@ -181,11 +194,11 @@ def main():
 
         print("*" * 72)
         if true_flag:
-            print("肯定回答(**)： ", summary_li[0][0])
+            print("肯定回答(**)： ", "\033[43;31m\033[1m" + summary_li[0][0] + "\033[0m")
             print("否定回答(  )： ", summary_li[-1][0])
         else:
             print("肯定回答(  )： ", summary_li[0][0])
-            print("否定回答(**)： ", summary_li[-1][0])
+            print("否定回答(**)： ", "\033[43;31m\033[1m" + summary_li[-1][0] + "\033[0m")
         print("*" * 72)
 
         # try crawler
@@ -200,15 +213,17 @@ def main():
         #     time.sleep(1)
         # result_noticer.clear()
 
-        print("~" * 60)
-        print(kwquery(real_question.strip("?")))
-        print("~" * 60)
+        # print("~" * 60)
+        # print(kwquery(real_question.strip("?")))
+        # print("~" * 60)
 
         end = time.time()
         print("use {0} 秒".format(end - start))
         save_screen(
             directory=data_directory
         )
+
+        return real_question
 
     print("""
     请选择答题节目:
@@ -225,24 +240,33 @@ def main():
         game_type = "芝士超人"
     else:
         game_type = '百万英雄'
-
-    while True:
-        print("""
+    
+    print("""
     请在答题开始前就运行程序，
     答题开始的时候按Enter预测答案
                 """)
+    print("当前选择答题游戏: {}\n".format(game_type))
 
-        print("当前选择答题游戏: {}\n".format(game_type))
-
+    ret_val = None
+    while True:
         enter = input("按Enter键开始，按ESC键退出...")
         if enter == chr(27):
             break
         try:
-            __inner_job()
+            ret_val = __inner_job()
         except Exception as e:
             print(str(e))
-
-        print("欢迎下次使用")
+        # if ret_val is None:
+        #     sys.stdout.write(("\r%- 15s" % datetime.now().strftime("%H:%M:%S.%f")) + " 未检测到题目 / 题目无变化")
+        #     time.sleep(detecting_interval)
+        # else:
+        #     timelimit = float(answer_time_limits[game_type])
+        #     timewait = 0.0
+        #     while timewait < timelimit:
+        #         timewait += detecting_interval
+        #         time.sleep(detecting_interval)
+        #         sys.stdout.write("\r检测到题目，下一次检测将在% 2.2fs后开始" % (timelimit - timewait))
+        #     print("")
 
     if enable_chrome:
         reader.close()

@@ -17,6 +17,12 @@ from shutil import copyfile
 
 from PIL import Image
 
+def print(*args):
+    pass
+
+def exec_cmd(cmd):
+    os.system(cmd + " > /dev/null")
+
 # SCREENSHOT_WAY 是截图方法，
 # 经过 check_screenshot 后，会自动递
 # 不需手动修改
@@ -96,8 +102,8 @@ def capture_screen_v2(filename="screenshot.png", directory="."):
     :return:
     """
     adb_bin = get_adb_tool()
-    os.system("{0} shell screencap -p /sdcard/{1}".format(adb_bin, filename))
-    os.system("{0} pull /sdcard/{1} {2}".format(adb_bin, filename, os.path.join(directory, filename)))
+    exec_cmd("{0} shell screencap -p /sdcard/{1}".format(adb_bin, filename))
+    exec_cmd("{0} pull /sdcard/{1} {2}".format(adb_bin, filename, os.path.join(directory, filename)))
 
 
 def capture_screen(filename="screenshot.png", directory="."):
@@ -123,8 +129,8 @@ def capture_screen(filename="screenshot.png", directory="."):
         with open(os.path.join(directory, filename), "wb") as writer:
             writer.write(binary_screenshot)
     elif SCREENSHOT_WAY == 0:
-        os.system("{0} shell screencap -p /sdcard/{1}".format(adb_bin, filename))
-        os.system("{0} pull /sdcard/{1} {2}".format(adb_bin, filename, os.path.join(directory, filename)))
+        exec_cmd("{0} shell screencap -p /sdcard/{1}".format(adb_bin, filename))
+        exec_cmd("{0} pull /sdcard/{1} {2}".format(adb_bin, filename, os.path.join(directory, filename)))
 
 
 def save_screen(filename="screenshot.png", directory="."):
