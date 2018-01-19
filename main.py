@@ -23,15 +23,10 @@ from config import app_key
 from config import app_secret
 from config import data_directory
 from config import prefer
-<<<<<<< HEAD
 from config import use_monitor
 from config import answer_time_limits
 from config import detecting_interval
-from core.android import analyze_current_screen_text, get_adb_tool, check_screenshot
-from core.android import save_screen
-=======
 from core.android import save_screen, check_screenshot, get_adb_tool, analyze_current_screen_text
->>>>>>> aa3a032ad501d25014d6918d219d3e18f83b5f57
 from core.check_words import parse_false
 from core.chrome_search import run_browser
 from core.crawler.baiduzhidao import baidu_count
@@ -162,7 +157,6 @@ def main():
 
         true_flag, real_question, question, answers = parse_question_and_answer(keywords)
 
-<<<<<<< HEAD
         nonlocal last_question
 
         if last_question == real_question:
@@ -180,7 +174,7 @@ def main():
         print("\033[43;34m\033[1m" + real_question + "\033[0m")
         # print('-' * 72)
         # print("\n".join(answers))
-=======
+
         if game_type == "UC答题":
             answers = map(lambda a: a.rsplit(":")[-1], answers)
 
@@ -199,7 +193,6 @@ def main():
         #     question, answers, true_flag
         # ))
         # knowledge_queue.put(question)
->>>>>>> aa3a032ad501d25014d6918d219d3e18f83b5f57
 
         if enable_chrome:
             writer.send(question)
@@ -208,47 +201,12 @@ def main():
         summary = baidu_count(question, answers, timeout=timeout)
         summary_li = sorted(summary.items(), key=operator.itemgetter(1), reverse=True)
         if true_flag:
-<<<<<<< HEAD
             print("肯定回答(**)： ", "\033[43;31m\033[1m" + summary_li[0][0] + "\033[0m")
             print("否定回答(  )： ", summary_li[-1][0])
         else:
             print("肯定回答(  )： ", summary_li[0][0])
             print("否定回答(**)： ", "\033[43;31m\033[1m" + summary_li[-1][0] + "\033[0m")
         print("*" * 72)
-
-        # try crawler
-        # retry = 4
-        # while retry:
-        #     if result_noticer.is_set():
-        #         print("~" * 60)
-        #         print(stdreader.recv())
-        #         print("~" * 60)
-        #         break
-        #     retry -= 1
-        #     time.sleep(1)
-        # result_noticer.clear()
-
-        # print("~" * 60)
-        # print(kwquery(real_question.strip("?")))
-        # print("~" * 60)
-=======
-            recommend = "{0}\n{1}".format(
-                "肯定回答(**)： {0}".format(summary_li[0][0]),
-                "否定回答(  )： {0}".format(summary_li[-1][0]))
-        else:
-            recommend = "{0}\n{1}".format(
-                "肯定回答(  )： {0}".format(summary_li[0][0]),
-                "否定回答(**)： {0}".format(summary_li[-1][0]))
-        print("*" * 60)
-        print("\n".join(map(lambda item: "{0}: {1}".format(item[0], item[1]), summary_li)))
-        print(recommend)
-        print("*" * 60)
-
-        ans = kwquery(real_question)
-        print("-" * 60)
-        print(wrap(" ".join(ans), 60))
-        print("-" * 60)
->>>>>>> aa3a032ad501d25014d6918d219d3e18f83b5f57
 
         end = time.time()
         # stdout_queue.put({
@@ -281,7 +239,6 @@ def main():
         game_type = "UC答题"
     else:
         game_type = '百万英雄'
-<<<<<<< HEAD
     
     print("""
     请在答题开始前就运行程序，
@@ -290,18 +247,14 @@ def main():
     print("当前选择答题游戏: {}\n".format(game_type))
 
     ret_val = None
-=======
 
->>>>>>> aa3a032ad501d25014d6918d219d3e18f83b5f57
     while True:
         enter = input("按Enter键开始，按ESC键退出...")
         if enter == chr(27):
             break
         try:
-<<<<<<< HEAD
+            clear_screen()
             ret_val = __inner_job()
-        except Exception as e:
-            print(str(e))
         # if ret_val is None:
         #     sys.stdout.write(("\r%- 15s" % datetime.now().strftime("%H:%M:%S.%f")) + " 未检测到题目 / 题目无变化")
         #     time.sleep(detecting_interval)
@@ -313,15 +266,10 @@ def main():
         #         time.sleep(detecting_interval)
         #         sys.stdout.write("\r检测到题目，下一次检测将在% 2.2fs后开始" % (timelimit - timewait))
         #     print("")
-=======
-            clear_screen()
-            __inner_job()
         except Exception as e:
             import traceback
-
             traceback.print_exc()
             print(str(e))
->>>>>>> aa3a032ad501d25014d6918d219d3e18f83b5f57
 
     print("欢迎下次使用")
     if enable_chrome:
