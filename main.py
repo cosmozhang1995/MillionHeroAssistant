@@ -6,7 +6,6 @@
     Xi Gua video Million Heroes
 
 """
-
 import multiprocessing
 import operator
 import sys, os
@@ -14,34 +13,34 @@ import time
 from argparse import ArgumentParser
 from datetime import datetime
 from functools import partial
-from multiprocessing import Event
-from multiprocessing import Pipe
+from multiprocessing import Event, Pipe
+from textwrap import wrap
 
-from terminaltables import AsciiTable
-
-from config import api_key
+from config import api_key, enable_chrome, use_monitor, image_compress_level, crop_areas
 from config import api_version
 from config import app_id
 from config import app_key
 from config import app_secret
-from config import crop_areas
 from config import data_directory
-from config import enable_chrome
-from config import image_compress_level
 from config import prefer
+<<<<<<< HEAD
 from config import use_monitor
 from config import answer_time_limits
 from config import detecting_interval
 from core.android import analyze_current_screen_text, get_adb_tool, check_screenshot
 from core.android import save_screen
+=======
+from core.android import save_screen, check_screenshot, get_adb_tool, analyze_current_screen_text
+>>>>>>> aa3a032ad501d25014d6918d219d3e18f83b5f57
 from core.check_words import parse_false
 from core.chrome_search import run_browser
 from core.crawler.baiduzhidao import baidu_count
 from core.crawler.crawl import jieba_initialize, kwquery
 from core.ocr.baiduocr import get_text_from_image as bai_get_text
 from core.ocr.spaceocr import get_text_from_image as ocrspace_get_text
-
 ## jieba init
+from dynamic_table import clear_screen
+
 jieba_initialize()
 
 if prefer[0] == "baidu":
@@ -78,7 +77,6 @@ def parse_question_and_answer(text_list):
     real_question = question.split(".")[-1]
 
     for char, repl in [("以下", ""), ("下列", "")]:
-        # if real_question.startswith(char):
         real_question = real_question.replace(char, repl, 1)
 
     question, true_flag = parse_false(real_question)
@@ -108,30 +106,35 @@ def main():
     args = parse_args()
     timeout = args.timeout
 
-    ## start crawler
-    # crawler_noticer = Event()
-    # crawler_noticer.clear()
-    # result_noticer = Event()
-    # result_noticer.clear()
-    # qreader, qwriter = Pipe()
-    # stdreader, stdwriter = Pipe()
-    # crawler = multiprocessing.Process(
-    #     target=crawler_daemon,
-    #     args=(crawler_noticer, qreader, result_noticer, stdwriter)
-    # )
-    # crawler.daemon = True
-    # crawler.start()
-
     adb_bin = get_adb_tool()
     if use_monitor:
         os.system("{0} connect 127.0.0.1:62001".format(adb_bin))
 
     check_screenshot(filename="screenshot.png", directory=data_directory)
 
+    # stdout_queue = Queue(10)
+    # ## spaw baidu count
+    # baidu_queue = Queue(5)
+    # baidu_search_job = multiprocessing.Process(target=baidu_count_daemon,
+    #                                            args=(baidu_queue, stdout_queue, timeout))
+    # baidu_search_job.daemon = True
+    # baidu_search_job.start()
+    #
+    # ## spaw crawler
+    # knowledge_queue = Queue(5)
+    # knowledge_craw_job = multiprocessing.Process(target=crawler_daemon,
+    #                                              args=(knowledge_queue, stdout_queue))
+    # knowledge_craw_job.daemon = True
+    # knowledge_craw_job.start()
+    #
+    # ## output threading
+    # output_job = threading.Thread(target=print_terminal, args=(stdout_queue,))
+    # output_job.daemon = True
+    # output_job.start()
+
     if enable_chrome:
         closer = Event()
         noticer = Event()
-        closer.clear()
         noticer.clear()
         reader, writer = Pipe()
         browser_daemon = multiprocessing.Process(
@@ -151,14 +154,15 @@ def main():
         )
         keywords = get_text_from_image(
             image_data=text_binary,
+            timeout=timeout
         )
         if not keywords:
             # print("\ntext not recognize")
             return None
 
-        true_flag, real_question, question, answers = parse_question_and_answer(
-            keywords)
+        true_flag, real_question, question, answers = parse_question_and_answer(keywords)
 
+<<<<<<< HEAD
         nonlocal last_question
 
         if last_question == real_question:
@@ -176,24 +180,35 @@ def main():
         print("\033[43;34m\033[1m" + real_question + "\033[0m")
         # print('-' * 72)
         # print("\n".join(answers))
+=======
+        if game_type == "UC答题":
+            answers = map(lambda a: a.rsplit(":")[-1], answers)
 
-        # notice browser
+        print("~" * 60)
+        print("{0}\n{1}".format(real_question, "\n".join(answers)))
+        print("~" * 60)
+
+        # ### refresh question
+        # stdout_queue.put({
+        #     "type": 0,
+        #     "data": "{0}\n{1}".format(question, "\n".join(answers))
+        # })
+        #
+        # # notice baidu and craw
+        # baidu_queue.put((
+        #     question, answers, true_flag
+        # ))
+        # knowledge_queue.put(question)
+>>>>>>> aa3a032ad501d25014d6918d219d3e18f83b5f57
+
         if enable_chrome:
             writer.send(question)
             noticer.set()
 
-        search_question = pre_process_question(question)
-        summary = baidu_count(search_question, answers, timeout=timeout)
-        summary_li = sorted(
-            summary.items(), key=operator.itemgetter(1), reverse=True)
-        data = [("选项", "同比")]
-        for a, w in summary_li:
-            data.append((a, w))
-        table = AsciiTable(data)
-        print(table.table)
-
-        print("*" * 72)
+        summary = baidu_count(question, answers, timeout=timeout)
+        summary_li = sorted(summary.items(), key=operator.itemgetter(1), reverse=True)
         if true_flag:
+<<<<<<< HEAD
             print("肯定回答(**)： ", "\033[43;31m\033[1m" + summary_li[0][0] + "\033[0m")
             print("否定回答(  )： ", summary_li[-1][0])
         else:
@@ -216,21 +231,45 @@ def main():
         # print("~" * 60)
         # print(kwquery(real_question.strip("?")))
         # print("~" * 60)
+=======
+            recommend = "{0}\n{1}".format(
+                "肯定回答(**)： {0}".format(summary_li[0][0]),
+                "否定回答(  )： {0}".format(summary_li[-1][0]))
+        else:
+            recommend = "{0}\n{1}".format(
+                "肯定回答(  )： {0}".format(summary_li[0][0]),
+                "否定回答(**)： {0}".format(summary_li[-1][0]))
+        print("*" * 60)
+        print("\n".join(map(lambda item: "{0}: {1}".format(item[0], item[1]), summary_li)))
+        print(recommend)
+        print("*" * 60)
+
+        ans = kwquery(real_question)
+        print("-" * 60)
+        print(wrap(" ".join(ans), 60))
+        print("-" * 60)
+>>>>>>> aa3a032ad501d25014d6918d219d3e18f83b5f57
 
         end = time.time()
+        # stdout_queue.put({
+        #     "type": 3,
+        #     "data": "use {0} 秒".format(end - start)
+        # })
         print("use {0} 秒".format(end - start))
         save_screen(
             directory=data_directory
         )
+        time.sleep(1)
 
         return real_question
 
     print("""
-    请选择答题节目:
-      1. 百万英雄
-      2. 冲顶大会
-      3. 芝士超人
-    """)
+            请选择答题节目:
+              1. 百万英雄
+              2. 冲顶大会
+              3. 芝士超人
+              4. UC答题
+            """)
     game_type = input("输入节目序号: ")
     if game_type == "1":
         game_type = '百万英雄'
@@ -238,8 +277,11 @@ def main():
         game_type = '冲顶大会'
     elif game_type == "3":
         game_type = "芝士超人"
+    elif game_type == "4":
+        game_type = "UC答题"
     else:
         game_type = '百万英雄'
+<<<<<<< HEAD
     
     print("""
     请在答题开始前就运行程序，
@@ -248,11 +290,15 @@ def main():
     print("当前选择答题游戏: {}\n".format(game_type))
 
     ret_val = None
+=======
+
+>>>>>>> aa3a032ad501d25014d6918d219d3e18f83b5f57
     while True:
         enter = input("按Enter键开始，按ESC键退出...")
         if enter == chr(27):
             break
         try:
+<<<<<<< HEAD
             ret_val = __inner_job()
         except Exception as e:
             print(str(e))
@@ -267,7 +313,17 @@ def main():
         #         time.sleep(detecting_interval)
         #         sys.stdout.write("\r检测到题目，下一次检测将在% 2.2fs后开始" % (timelimit - timewait))
         #     print("")
+=======
+            clear_screen()
+            __inner_job()
+        except Exception as e:
+            import traceback
 
+            traceback.print_exc()
+            print(str(e))
+>>>>>>> aa3a032ad501d25014d6918d219d3e18f83b5f57
+
+    print("欢迎下次使用")
     if enable_chrome:
         reader.close()
         writer.close()
