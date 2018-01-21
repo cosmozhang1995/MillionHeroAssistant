@@ -10,13 +10,14 @@ import multiprocessing
 import operator
 import sys, os
 import time
+import re
 from argparse import ArgumentParser
 from datetime import datetime
 from functools import partial
 from multiprocessing import Event, Pipe
 from textwrap import wrap
 
-from config import api_key, enable_chrome, use_monitor, image_compress_level, crop_areas
+from config import api_key, enable_chrome, use_monitor, image_compress_level, crop_areas, white_size, white_threshold, white_points, rotate, question_areas, answer_areas, question_waits
 from config import api_version
 from config import app_id
 from config import app_key
@@ -26,7 +27,7 @@ from config import prefer
 from config import use_monitor
 from config import answer_time_limits
 from config import detecting_interval
-from core.android import save_screen, check_screenshot, get_adb_tool, analyze_current_screen_text
+from core.android import save_screen, check_screenshot, get_adb_tool, analyze_current_screen_text_v2
 from core.check_words import parse_false
 from core.chrome_search import run_browser
 from core.crawler.baiduzhidao import baidu_count
@@ -61,7 +62,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def parse_question_and_answer(text_list):
+def parse_question_with_answer(text_list):
     question = ""
     start = 0
     for i, keyword in enumerate(text_list):
@@ -76,6 +77,24 @@ def parse_question_and_answer(text_list):
 
     question, true_flag = parse_false(real_question)
     return true_flag, real_question, question, text_list[start:]
+
+def parse_question_and_answer(question_text_list, answer_text_list):
+    question = ""
+    start = 0
+    for i, keyword in enumerate(question_text_list):
+        question += keyword
+    # real_question = "".join(question.split(".")[1:])
+    real_question = question
+    real_question = re.sub(r"^\d+\s*\.\s*", "", real_question)
+
+    for char, repl in [("以下", ""), ("下列", "")]:
+        real_question = real_question.replace(char, repl, 1)
+
+    question, true_flag = parse_false(real_question)
+
+    answers = [keyword for keyword in answer_text_list]
+
+    return true_flag, real_question, question, answers
 
 
 def pre_process_question(keyword):
@@ -137,32 +156,61 @@ def main():
         browser_daemon.daemon = True
         browser_daemon.start()
 
-    last_question = None
-
     def __inner_job():
         start = time.time()
-        text_binary = analyze_current_screen_text(
+        white_point = white_points[game_type]
+        question_wait = question_waits[game_type]
+        white_area = [
+            white_point[0] - white_size[0],
+            white_point[1] - white_size[1],
+            white_point[0] + white_size[0],
+            white_point[1] + white_size[1]
+        ]
+        white_area, white_threshold, white_points
+        text_binary = analyze_current_screen_text_v2(
             directory=data_directory,
             compress_level=image_compress_level[0],
-            crop_area=crop_areas[game_type],
+            question_area=question_areas[game_type],
+            answer_area=answer_areas[game_type],
+            white_area=white_area,
+            white_thre=white_threshold,
+            rotate=rotate,
             use_monitor=use_monitor
         )
-        keywords = get_text_from_image(
-            image_data=text_binary,
+        if text_binary is None:
+            sys.stdout.write("\r%- 15s 未检测到问题或问题未更新" % datetime.now().strftime("%H:%M:%S.%f"))
+            return
+        # if question_wait > 0:
+        #     time.sleep(question_wait)
+        # text_binary = analyze_current_screen_text_v2(
+        #     directory=data_directory,
+        #     compress_level=image_compress_level[0],
+        #     question_area=question_areas[game_type],
+        #     answer_area=answer_areas[game_type],
+        #     white_area=white_area,
+        #     white_thre=white_threshold,
+        #     rotate=rotate,
+        #     use_monitor=use_monitor
+        # )
+        question_keywords = get_text_from_image(
+            image_data=text_binary[0],
             timeout=timeout
         )
-        if not keywords:
-            # print("\ntext not recognize")
+        answer_keywords = get_text_from_image(
+            image_data=text_binary[1],
+            timeout=timeout
+        )
+        if not question_keywords:
+            sys.stdout.write("\r%- 15s 未识别到问题" % datetime.now().strftime("%H:%M:%S.%f"))
+            return None
+        if not answer_keywords:
+            sys.stdout.write("\r%- 15s 未识别到选项" % datetime.now().strftime("%H:%M:%S.%f"))
             return None
 
-        true_flag, real_question, question, answers = parse_question_and_answer(keywords)
+        clear_screen()
 
-        nonlocal last_question
-
-        if last_question == real_question:
-            return None
-
-        last_question = real_question
+        true_flag, real_question, question, answers = parse_question_and_answer(question_keywords, answer_keywords)
+        print("keywords>> ", question, answers)
 
         ## notice crawler to work
         # qwriter.send(real_question.strip("?"))
@@ -219,7 +267,7 @@ def main():
         )
         time.sleep(1)
 
-        return real_question
+        print("")
 
     print("""
             请选择答题节目:
@@ -246,26 +294,13 @@ def main():
                 """)
     print("当前选择答题游戏: {}\n".format(game_type))
 
-    ret_val = None
-
     while True:
-        enter = input("按Enter键开始，按ESC键退出...")
-        if enter == chr(27):
-            break
+        # enter = input("按Enter键开始，按ESC键退出...")
+        # if enter == chr(27):
+        #     break
         try:
-            clear_screen()
-            ret_val = __inner_job()
-        # if ret_val is None:
-        #     sys.stdout.write(("\r%- 15s" % datetime.now().strftime("%H:%M:%S.%f")) + " 未检测到题目 / 题目无变化")
-        #     time.sleep(detecting_interval)
-        # else:
-        #     timelimit = float(answer_time_limits[game_type])
-        #     timewait = 0.0
-        #     while timewait < timelimit:
-        #         timewait += detecting_interval
-        #         time.sleep(detecting_interval)
-        #         sys.stdout.write("\r检测到题目，下一次检测将在% 2.2fs后开始" % (timelimit - timewait))
-        #     print("")
+            __inner_job()
+            time.sleep(1)
         except Exception as e:
             import traceback
             traceback.print_exc()

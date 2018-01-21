@@ -36,4 +36,5 @@ def get_text_from_image(image_data, app_id, app_key, app_secret, api_version=0, 
     if "error_code" in result:
         print("baidu api error: ", result["error_msg"])
         return ""
+
     return [words["words"] for words in result["words_result"]]

@@ -16,8 +16,23 @@ with open("config.yaml", "rb") as reader:
     api_version = config["api_version"]
 
     ## 图像比例裁剪区域, (left, top, right, bottom)
-    ## 最终裁剪区域可表示为 (image_width * left, image_height * top, image_width * right, image_height * bottom)
     crop_areas = config["crop_areas"]
+    ## 问题区域
+    question_areas = config["question_areas"]
+    ## 答案选项区域
+    answer_areas = config["answer_areas"]
+    ## 图像上的白点位置（X,Y），该点判断为白色时，即认为弹出了题目框
+    white_points = config["white_points"]
+    ## 判断白点的阈值
+    white_threshold = config["white_threshold"]
+    ## 判断白点的邻域大小
+    white_size = config["white_size"]
+
+    # 截图预处理旋转方式，可选：no | left | right
+    rotate = config["rotate"]
+
+    # 从题目框出现到题目完全出现的时间
+    question_waits = config["question_waits"]
 
     answer_time_limits = config["answer_time_limits"]
     detecting_interval = config["detecting_interval"]

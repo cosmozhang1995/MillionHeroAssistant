@@ -23,7 +23,7 @@ def print(*args):
 def exec_cmd(cmd):
     system_version = platform.system().upper()
     if system_version.startswith("WINDOWS"):
-        os.system(cmd)
+        os.system(cmd + " > NUL")
     else:
         os.system(cmd + " > /dev/null")
 
@@ -31,6 +31,9 @@ def exec_cmd(cmd):
 # 经过 check_screenshot 后，会自动递
 # 不需手动修改
 SCREENSHOT_WAY = 3
+
+
+last_iswhite = False
 
 
 def get_adb_tool():
@@ -69,7 +72,7 @@ def check_screenshot(filename, directory):
         check_screenshot(filename=filename, directory=directory)
 
 
-def analyze_current_screen_text(crop_area, directory=".", compress_level=1, use_monitor=False):
+def analyze_current_screen_text(crop_area, white_area, rotate, white_thre, directory=".", compress_level=1, use_monitor=False):
     """
     capture the android screen now
 
@@ -79,9 +82,44 @@ def analyze_current_screen_text(crop_area, directory=".", compress_level=1, use_
     screenshot_filename = "screenshot.png"
     save_text_area = os.path.join(directory, "text_area.png")
     capture_screen_v2(screenshot_filename, directory)
-    parse_answer_area(os.path.join(directory, screenshot_filename),
-                      save_text_area, compress_level, crop_area)
-    return get_area_data(save_text_area)
+    iswhite = parse_answer_area(os.path.join(directory, screenshot_filename),
+                      save_text_area, compress_level, rotate, crop_area, white_area, white_thre)
+    global last_iswhite
+    if iswhite and not last_iswhite:
+        last_iswhite = iswhite
+        return get_area_data(save_text_area)
+    else:
+        last_iswhite = iswhite
+        return None
+
+def analyze_current_screen_text_v2(question_area, answer_area, white_area, rotate, white_thre, directory=".", compress_level=1, use_monitor=False, dont_set_white=False):
+    """
+    capture the android screen now
+
+    :return:
+    """
+    print("capture time: ", datetime.now().strftime("%H:%M:%S"))
+    screenshot_filename = "screenshot.png"
+    save_question_area = os.path.join(directory, "question_area.png")
+    save_answer_area = os.path.join(directory, "answer_area.png")
+    capture_screen_v2(screenshot_filename, directory)
+    iswhite = parse_question_answer_area(
+        os.path.join(directory, screenshot_filename),
+        save_question_area,
+        save_answer_area,
+        compress_level,
+        rotate,
+        question_area,
+        answer_area,
+        white_area,
+        white_thre)
+    global last_iswhite
+    if iswhite and not last_iswhite:
+        if not dont_set_white: last_iswhite = iswhite
+        return (get_area_data(save_question_area), get_area_data(save_answer_area))
+    else:
+        if not dont_set_white: last_iswhite = iswhite
+        return None
 
 
 def analyze_stored_screen_text(screenshot_filename="screenshot.png", directory=".", compress_level=1):
@@ -92,8 +130,7 @@ def analyze_stored_screen_text(screenshot_filename="screenshot.png", directory="
     :return:
     """
     save_text_area = os.path.join(directory, "text_area.png")
-    parse_answer_area(os.path.join(
-        directory, screenshot_filename), save_text_area, compress_level)
+    parse_answer_area(os.path.join(directory, screenshot_filename), save_text_area, compress_level)
     return get_area_data(save_text_area)
 
 
@@ -106,11 +143,8 @@ def capture_screen_v2(filename="screenshot.png", directory="."):
     :return:
     """
     adb_bin = get_adb_tool()
-    sys.stdout.write(">>> cmd\n")
-    sys.stdout.write("{0} shell screencap -p /sdcard/{1}\n".format(adb_bin, filename))
     exec_cmd("{0} shell screencap -p /sdcard/{1}".format(adb_bin, filename))
     exec_cmd("{0} pull /sdcard/{1} {2}".format(adb_bin, filename, os.path.join(directory, filename)))
-    sys.stdout.write("<<< cmd\n")
 
 
 def capture_screen(filename="screenshot.png", directory="."):
@@ -151,7 +185,7 @@ def save_screen(filename="screenshot.png", directory="."):
              os.path.join(directory, datetime.now().strftime("%m%d_%H%M%S").join(os.path.splitext(filename))))
 
 
-def parse_answer_area(source_file, text_area_file, compress_level, crop_area):
+def parse_answer_area(source_file, text_area_file, compress_level, rotate, crop_area, white_area, white_thre):
     """
     crop the answer area
 
@@ -164,12 +198,64 @@ def parse_answer_area(source_file, text_area_file, compress_level, crop_area):
     elif compress_level == 2:
         image = image.convert("1")
 
+    if rotate == "left":
+        image = image.rotate(90, expand=True)
+    elif rotate == "right":
+        image = image.rotate(-90, expand=True)
+
     width, height = image.size[0], image.size[1]
     print("screen width: {0}, screen height: {1}".format(width, height))
 
-    region = image.crop(
-        (width * crop_area[0], height * crop_area[1], width * crop_area[2], height * crop_area[3]))
+    for x in range(white_area[0], white_area[2]+1):
+        for y in range(white_area[1], white_area[3]+1):
+            pxrgb = image.getpixel((x,y))
+            if pxrgb[0] < white_thre[0] or pxrgb[1] < white_thre[1] or pxrgb[2] < white_thre[2]:
+                return False
+
+
+    # region = image.crop(
+    #     (width * crop_area[0], height * crop_area[1], width * crop_area[2], height * crop_area[3]))
+    region = image.crop((crop_area[0], crop_area[1], crop_area[2], crop_area[3]))
     region.save(text_area_file)
+
+    return True
+
+def parse_question_answer_area(source_file, save_question_area, save_answer_area, compress_level, rotate, question_area, answer_area, white_area, white_thre):
+    """
+    crop the answer area
+
+    :return:
+    """
+
+    image = Image.open(source_file)
+    if compress_level == 1:
+        image = image.convert("L")
+    elif compress_level == 2:
+        image = image.convert("1")
+
+    if rotate == "left":
+        image = image.rotate(90, expand=True)
+    elif rotate == "right":
+        image = image.rotate(-90, expand=True)
+
+    width, height = image.size[0], image.size[1]
+    print("screen width: {0}, screen height: {1}".format(width, height))
+
+    for x in range(white_area[0], white_area[2]+1):
+        for y in range(white_area[1], white_area[3]+1):
+            pxrgb = image.getpixel((x,y))
+            if pxrgb[0] < white_thre[0] or pxrgb[1] < white_thre[1] or pxrgb[2] < white_thre[2]:
+                return False
+
+
+    # region = image.crop(
+    #     (width * crop_area[0], height * crop_area[1], width * crop_area[2], height * crop_area[3]))
+    region = image.crop((question_area[0], question_area[1], question_area[2], question_area[3]))
+    region.save(save_question_area)
+    region = image.crop((answer_area[0], answer_area[1], answer_area[2], answer_area[3]))
+    region.save(save_answer_area)
+
+    return True
 
 
 def get_area_data(text_area_file):
